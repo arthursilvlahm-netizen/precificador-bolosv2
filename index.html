@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#9d3b5f">
+<meta name="description" content="Calcule o preço de venda dos seus bolos: custos, margem de lucro, taxas e preço por fatia.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Precifica Bolo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Precificador de Bolos</title>
+<style>
+  :root{
+    --bg:#fdf6f0; --card:#ffffff; --ink:#3b2a24; --muted:#8a7468; --line:#eadbd0;
+    --accent:#c2547a; --accent-dark:#9d3b5f; --ok:#2f7d4f; --warn:#b26a00; --soft:#fbe9ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
+  header{padding:calc(20px + env(safe-area-inset-top)) 16px 8px;max-width:900px;margin:0 auto}
+  h1{margin:0;font-size:1.5rem}
+  header p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+  main{max-width:900px;margin:0 auto;padding:8px 16px 140px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0}
+  h2{font-size:1.05rem;margin:0 0 4px}
+  .hint{color:var(--muted);font-size:.85rem;margin:0 0 12px}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px}
+  input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;background:#fff;color:var(--ink);font-family:inherit}
+  input:focus,select:focus{outline:2px solid var(--accent);border-color:transparent}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .row{display:grid;gap:8px;align-items:end;padding:10px;border:1px dashed var(--line);border-radius:10px;margin-bottom:8px;
+       grid-template-columns:2fr 1fr 1fr 1fr 1fr auto}
+  .row.pack{grid-template-columns:2fr 1fr auto}
+  .row .unit{display:grid;grid-template-columns:1.2fr 1fr;gap:4px}
+  .cost{font-weight:600;white-space:nowrap;padding-bottom:9px;text-align:right}
+  .cost small{display:block;color:var(--warn);font-weight:400;font-size:.7rem;white-space:normal}
+  button{font-family:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 12px;font-size:.9rem}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{background:var(--accent-dark)}
+  button.del{color:#b3261e;padding:9px 11px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .total-line{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:.95rem}
+  .total-line:last-child{border-bottom:none}
+  .total-line.strong{font-weight:700}
+  .result{background:var(--soft);border-color:#f2c9d7}
+  .price-big{font-size:2rem;font-weight:800;color:var(--accent-dark);margin:2px 0}
+  .kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin:12px 0}
+  .kpi{background:#fff;border-radius:10px;padding:10px;border:1px solid #f2c9d7}
+  .kpi span{display:block;font-size:.75rem;color:var(--muted)}
+  .kpi b{font-size:1.1rem}
+  .alert{background:#fff4e0;border:1px solid #f0cf94;color:#7a4a00;padding:8px 10px;border-radius:8px;font-size:.85rem;margin-top:8px}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--accent-dark);color:#fff;padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:24px;box-shadow:0 -4px 14px rgba(0,0,0,.15)}
+  .bar div{text-align:center}
+  .bar span{display:block;font-size:.7rem;opacity:.85}
+  .bar b{font-size:1.15rem}
+  .recipes{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;align-items:end}
+  button.armed{background:#b3261e;color:#fff;border-color:#b3261e}
+  .install{display:none;margin:10px 0 0;padding:10px 12px;background:var(--soft);border:1px solid #f2c9d7;border-radius:10px;font-size:.88rem;align-items:center;gap:10px;justify-content:space-between}
+  .install.show{display:flex}
+  .install button{white-space:nowrap}
+  .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3b2a24;color:#fff;padding:10px 16px;border-radius:10px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  textarea#resumo{width:100%;min-height:200px;padding:10px;border:1px solid var(--line);border-radius:8px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;margin-top:8px}
+  @media (max-width:700px){
+    .row{grid-template-columns:1fr 1fr}
+    .row .name{grid-column:1/-1}
+    .row .cost{grid-column:1/2;text-align:left;padding-bottom:0}
+    .row .del{justify-self:end}
+    .row.pack{grid-template-columns:1fr 1fr}
+    .row.pack .name{grid-column:1/-1}
+    .recipes{grid-template-columns:1fr 1fr}
+    .recipes .full{grid-column:1/-1}
+  }
+  @media print{
+    .bar,.actions,button,.recipes{display:none!important}
+    body{background:#fff}
+    section{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎂 Precificador de Bolos</h1>
+  <p>Preencha os custos da receita e veja o preço de venda ideal. Tudo é salvo automaticamente neste aparelho.</p>
+  <div class="install" id="install">
+    <span id="installTxt">Instale o app no seu celular.</span>
+    <span style="display:flex;gap:6px"><button type="button" class="primary" id="btnInstalar" style="display:none">Instalar</button><button type="button" id="btnFechaInstall">Agora não</button></span>
+  </div>
+  <noscript><div class="alert">Este app precisa de JavaScript. Abra no Chrome ou no Safari.</div></noscript>
+</header>
+
+<main>
+
+  <section>
+    <h2>Receita</h2>
+    <p class="hint">Dê um nome e informe o rendimento. Ingredientes, mão de obra e energia são da receita inteira; embalagem é por bolo.</p>
+    <div class="grid">
+      <div style="grid-column:1/-1"><label>Nome do bolo</label><input id="nome" placeholder="Ex.: Bolo de chocolate com brigadeiro"></div>
+      <div><label>Quantos bolos a receita rende</label><input id="bolos" type="number" min="1" step="1" value="1"></div>
+      <div><label>Fatias por bolo</label><input id="fatias" type="number" min="1" step="1" value="16"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>1. Ingredientes</h2>
+    <p class="hint">Informe o que você pagou pela embalagem do ingrediente e quanto usa na receita. As unidades podem ser diferentes (ex.: comprou em kg, usa em g).</p>
+    <div id="ingredientes"></div>
+    <div class="actions"><button id="btnAddIng" type="button">+ Adicionar ingrediente</button></div>
+    <div class="total-line strong" style="margin-top:12px"><span>Total de ingredientes</span><span id="t-ing">R$ 0,00</span></div>
+  </section>
+
+  <section>
+    <h2>2. Embalagem (por bolo)</h2>
+    <p class="hint">Caixa, base, fita, etiqueta, saquinho, etc.</p>
+    <div id="embalagens"></div>
+    <div class="actions"><button id="btnAddPack" type="button">+ Adicionar item</button></div>
+    <div class="total-line strong" style="margin-top:12px"><span>Embalagem por bolo</span><span id="t-pack">R$ 0,00</span></div>
+  </section>
+
+  <section>
+    <h2>3. Mão de obra e energia</h2>
+    <div class="grid">
+      <div><label>Horas de trabalho na receita</label><input id="horas" type="number" min="0" step="0.25" value="0"></div>
+      <div><label>Valor da sua hora (R$)</label><input id="valorHora" type="number" min="0" step="0.5" value="0"></div>
+      <div><label>Gás + energia da receita (R$)</label><input id="energia" type="number" min="0" step="0.5" value="0"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Dica: pague a si mesma um salário. Se a hora ficar em zero, o preço não cobre o seu trabalho.</p>
+  </section>
+
+  <section>
+    <h2>4. Perdas e custos indiretos</h2>
+    <div class="grid">
+      <div><label>Perdas / desperdício (% dos ingredientes)</label><input id="perda" type="number" min="0" step="0.5" value="5"></div>
+      <div><label>Custos fixos rateados (% sobre o custo)</label><input id="indireto" type="number" min="0" step="0.5" value="10"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Custos fixos: água, internet, MEI, aluguel de espaço, equipamentos, divulgação. Some o mensal e divida pelo custo médio de produção do mês para estimar o percentual.</p>
+  </section>
+
+  <section>
+    <h2>5. Lucro e taxas sobre a venda</h2>
+    <div class="grid">
+      <div><label>Lucro desejado (% do preço)</label><input id="lucro" type="number" min="0" max="90" step="1" value="30"></div>
+      <div><label>Taxas / impostos (% do preço)</label><input id="taxas" type="number" min="0" max="50" step="0.1" value="3"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Taxas: cartão, Pix, app de delivery, imposto do MEI/Simples. O lucro e as taxas são calculados sobre o preço final, não sobre o custo.</p>
+  </section>
+
+  <section class="result">
+    <h2>Resultado</h2>
+    <div class="price-big" id="r-preco">R$ 0,00</div>
+    <div style="color:var(--muted);font-size:.9rem">preço de venda sugerido por bolo</div>
+
+    <div class="kpis">
+      <div class="kpi"><span>Preço por fatia</span><b id="r-fatia">R$ 0,00</b></div>
+      <div class="kpi"><span>Custo por bolo</span><b id="r-custo">R$ 0,00</b></div>
+      <div class="kpi"><span>Lucro por bolo</span><b id="r-lucro" style="color:var(--ok)">R$ 0,00</b></div>
+      <div class="kpi"><span>Markup (sobre custo)</span><b id="r-markup">0%</b></div>
+    </div>
+
+    <div class="total-line"><span>Ingredientes (com perdas), por bolo</span><span id="d-ing">R$ 0,00</span></div>
+    <div class="total-line"><span>Mão de obra, por bolo</span><span id="d-mao">R$ 0,00</span></div>
+    <div class="total-line"><span>Gás e energia, por bolo</span><span id="d-ene">R$ 0,00</span></div>
+    <div class="total-line"><span>Embalagem</span><span id="d-pack">R$ 0,00</span></div>
+    <div class="total-line"><span>Custos fixos rateados</span><span id="d-ind">R$ 0,00</span></div>
+    <div class="total-line strong"><span>Custo total por bolo</span><span id="d-custo">R$ 0,00</span></div>
+    <div class="total-line"><span>Taxas e impostos sobre a venda</span><span id="d-taxas">R$ 0,00</span></div>
+    <div class="total-line strong"><span>Lucro líquido</span><span id="d-lucro">R$ 0,00</span></div>
+
+    <div id="avisos"></div>
+
+    <div style="margin-top:14px">
+      <label>Quer arredondar? Preço final que você vai cobrar (R$)</label>
+      <input id="precoFinal" type="number" min="0" step="0.5" placeholder="Opcional">
+      <div id="r-final" style="margin-top:8px;font-size:.9rem"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Minhas receitas salvas</h2>
+    <p class="hint">Salve esta receita para reutilizar depois. Os dados ficam só neste navegador.</p>
+    <div class="recipes">
+      <div class="full"><label>Receitas</label><select id="lista"></select></div>
+      <button class="primary" id="btnSalvar" type="button">Salvar</button>
+      <button id="btnAbrir" type="button">Abrir</button>
+      <button class="del" id="btnExcluir" type="button">Excluir</button>
+    </div>
+    <div class="actions">
+      <button id="btnNovo" type="button">Nova receita (limpar)</button>
+      <button id="btnPrint" type="button">Imprimir / salvar PDF</button>
+      <button id="btnResumo" type="button">Resumo para copiar</button>
+    </div>
+    <div id="resumoBox" style="display:none">
+      <textarea id="resumo" readonly></textarea>
+      <div class="actions"><button id="btnCopiar" type="button" class="primary">Copiar resumo</button></div>
+    </div>
+  </section>
+
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="bar">
+  <div><span>Custo por bolo</span><b id="b-custo">R$ 0,00</b></div>
+  <div><span>Preço sugerido</span><b id="b-preco">R$ 0,00</b></div>
+</div>
+
+<script>
+const UN = {
+  g:{dim:'m',f:1}, kg:{dim:'m',f:1000},
+  ml:{dim:'v',f:1}, l:{dim:'v',f:1000},
+  un:{dim:'u',f:1}, dz:{dim:'u',f:12}
+};
+const UN_LABEL = {g:'g',kg:'kg',ml:'ml',l:'litro',un:'unid.',dz:'dúzia'};
+const fmt = n => (isFinite(n)?n:0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pct = n => (isFinite(n)?n:0).toLocaleString('pt-BR',{maximumFractionDigits:0})+'%';
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(String(v).replace(',','.')); return isFinite(n)?n:0; };
+
+const STORE_KEY = 'precificador-bolos-v1';
+const RECIPES_KEY = 'precificador-bolos-receitas-v1';
+const safeGet = k => { try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } };
+const safeSet = (k,v) => { try{ localStorage.setItem(k,JSON.stringify(v)); return localStorage.getItem(k)!==null; }catch(e){ return false; } };
+
+function unitOptions(sel){
+  return Object.keys(UN).map(u=>`<option value="${u}" ${u===sel?'selected':''}>${UN_LABEL[u]}</option>`).join('');
+}
+
+function addIng(d){
+  d = d || {nome:'',pQtd:'',pUn:'g',preco:'',uQtd:'',uUn:'g'};
+  const el = document.createElement('div');
+  el.className = 'row ing';
+  el.innerHTML = `
+    <div class="name"><label>Ingrediente</label><input class="i-nome" value="${esc(d.nome)}" placeholder="Ex.: Farinha de trigo"></div>
+    <div><label>Embalagem comprada</label><div class="unit"><input class="i-pqtd" type="number" min="0" step="any" value="${d.pQtd}" placeholder="1000"><select class="i-pun">${unitOptions(d.pUn)}</select></div></div>
+    <div><label>Preço pago (R$)</label><input class="i-preco" type="number" min="0" step="0.01" value="${d.preco}" placeholder="0,00"></div>
+    <div><label>Usado na receita</label><div class="unit"><input class="i-uqtd" type="number" min="0" step="any" value="${d.uQtd}" placeholder="300"><select class="i-uun">${unitOptions(d.uUn)}</select></div></div>
+    <div class="cost"><span class="i-custo">R$ 0,00</span><small class="i-aviso"></small></div>
+    <button class="del" type="button" title="Remover">✕</button>`;
+  $('ingredientes').appendChild(el);
+  bind(el);
+}
+function addPack(d){
+  d = d || {nome:'',valor:''};
+  const el = document.createElement('div');
+  el.className = 'row pack';
+  el.innerHTML = `
+    <div class="name"><label>Item</label><input class="p-nome" value="${esc(d.nome)}" placeholder="Ex.: Caixa com visor"></div>
+    <div><label>Custo por bolo (R$)</label><input class="p-valor" type="number" min="0" step="0.01" value="${d.valor}" placeholder="0,00"></div>
+    <button class="del" type="button" title="Remover">✕</button>`;
+  $('embalagens').appendChild(el);
+  bind(el);
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function bind(el){
+  el.querySelectorAll('input,select').forEach(i=>i.addEventListener('input',calc));
+  const d = el.querySelector('button.del');
+  if(d) d.addEventListener('click',()=>{ el.remove(); calc(); });
+}
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function confirmar(btn,texto,fn){
+  if(btn.dataset.armed){
+    clearTimeout(Number(btn.dataset.armed)); delete btn.dataset.armed;
+    btn.textContent=btn.dataset.orig; btn.classList.remove('armed'); fn(); return;
+  }
+  btn.dataset.orig=btn.textContent; btn.textContent=texto; btn.classList.add('armed');
+  btn.dataset.armed=String(setTimeout(()=>{ delete btn.dataset.armed; btn.textContent=btn.dataset.orig; btn.classList.remove('armed'); },3000));
+}
+
+function calc(){
+  // ingredientes
+  let totIng = 0;
+  document.querySelectorAll('.ing').forEach(r=>{
+    const pQtd = num(r.querySelector('.i-pqtd').value);
+    const preco = num(r.querySelector('.i-preco').value);
+    const uQtd = num(r.querySelector('.i-uqtd').value);
+    const pu = UN[r.querySelector('.i-pun').value], uu = UN[r.querySelector('.i-uun').value];
+    const aviso = r.querySelector('.i-aviso');
+    let custo = 0; aviso.textContent = '';
+    if(pu.dim !== uu.dim){
+      aviso.textContent = 'Unidades incompatíveis (ex.: g com ml). Ajuste.';
+    } else if(pQtd > 0){
+      custo = (uQtd*uu.f)/(pQtd*pu.f)*preco;
+    }
+    r.querySelector('.i-custo').textContent = fmt(custo);
+    totIng += custo;
+  });
+  $('t-ing').textContent = fmt(totIng);
+
+  // embalagens
+  let pack = 0;
+  document.querySelectorAll('.pack').forEach(r=> pack += num(r.querySelector('.p-valor').value));
+  $('t-pack').textContent = fmt(pack);
+
+  const bolos = Math.max(1, num($('bolos').value));
+  const fatias = Math.max(1, num($('fatias').value));
+  const mao = num($('horas').value) * num($('valorHora').value);
+  const ene = num($('energia').value);
+  const perda = num($('perda').value)/100;
+  const ind = num($('indireto').value)/100;
+  const lucro = num($('lucro').value)/100;
+  const taxas = num($('taxas').value)/100;
+
+  const ingBolo = totIng*(1+perda)/bolos;
+  const maoBolo = mao/bolos;
+  const eneBolo = ene/bolos;
+  const direto = ingBolo + maoBolo + eneBolo + pack;
+  const indVal = direto*ind;
+  const custo = direto + indVal;
+
+  const divisor = 1 - lucro - taxas;
+  let preco = 0;
+  const avisos = [];
+  if(divisor <= 0){
+    avisos.push('Lucro + taxas somam 100% ou mais do preço. Reduza algum deles.');
+  } else {
+    preco = custo/divisor;
+  }
+  const taxasVal = preco*taxas;
+  const lucroVal = preco - custo - taxasVal;
+
+  if(totIng === 0) avisos.push('Nenhum ingrediente preenchido ainda.');
+  if(mao === 0 && totIng > 0) avisos.push('Mão de obra zerada: o preço não está pagando o seu trabalho.');
+
+  $('r-preco').textContent = fmt(preco);
+  $('r-fatia').textContent = fmt(preco/fatias);
+  $('r-custo').textContent = fmt(custo);
+  $('r-lucro').textContent = fmt(lucroVal);
+  $('r-markup').textContent = custo>0 ? pct((preco/custo-1)*100) : '0%';
+  $('d-ing').textContent = fmt(ingBolo);
+  $('d-mao').textContent = fmt(maoBolo);
+  $('d-ene').textContent = fmt(eneBolo);
+  $('d-pack').textContent = fmt(pack);
+  $('d-ind').textContent = fmt(indVal);
+  $('d-custo').textContent = fmt(custo);
+  $('d-taxas').textContent = fmt(taxasVal);
+  $('d-lucro').textContent = fmt(lucroVal);
+  $('b-custo').textContent = fmt(custo);
+  $('b-preco').textContent = fmt(preco);
+  $('avisos').innerHTML = avisos.map(a=>`<div class="alert">⚠️ ${a}</div>`).join('');
+
+  // preço final escolhido
+  const pf = num($('precoFinal').value);
+  const out = $('r-final');
+  if(pf > 0){
+    const lucroF = pf - custo - pf*taxas;
+    const margem = pf>0 ? lucroF/pf*100 : 0;
+    const cor = lucroF >= 0 ? 'var(--ok)' : '#b3261e';
+    out.innerHTML = `Com <b>${fmt(pf)}</b> (${fmt(pf/fatias)} por fatia) seu lucro líquido é <b style="color:${cor}">${fmt(lucroF)}</b>, margem de <b style="color:${cor}">${pct(margem)}</b>.`;
+  } else out.textContent = '';
+
+  persist();
+}
+
+function estado(){
+  return {
+    nome:$('nome').value, bolos:$('bolos').value, fatias:$('fatias').value,
+    horas:$('horas').value, valorHora:$('valorHora').value, energia:$('energia').value,
+    perda:$('perda').value, indireto:$('indireto').value, lucro:$('lucro').value, taxas:$('taxas').value,
+    precoFinal:$('precoFinal').value,
+    ing:[...document.querySelectorAll('.ing')].map(r=>({
+      nome:r.querySelector('.i-nome').value, pQtd:r.querySelector('.i-pqtd').value, pUn:r.querySelector('.i-pun').value,
+      preco:r.querySelector('.i-preco').value, uQtd:r.querySelector('.i-uqtd').value, uUn:r.querySelector('.i-uun').value
+    })),
+    pack:[...document.querySelectorAll('.pack')].map(r=>({nome:r.querySelector('.p-nome').value, valor:r.querySelector('.p-valor').value}))
+  };
+}
+function aplicar(s){
+  ['nome','bolos','fatias','horas','valorHora','energia','perda','indireto','lucro','taxas','precoFinal'].forEach(k=>{ if(s[k]!==undefined) $(k).value = s[k]; });
+  $('ingredientes').innerHTML=''; $('embalagens').innerHTML='';
+  (s.ing||[]).forEach(addIng); (s.pack||[]).forEach(addPack);
+  if(!(s.ing||[]).length) addIng();
+  if(!(s.pack||[]).length) addPack();
+  calc();
+}
+function persist(){ safeSet(STORE_KEY, estado()); }
+
+// receitas salvas
+function receitas(){ return safeGet(RECIPES_KEY) || {}; }
+function atualizaLista(sel){
+  const r = receitas(), nomes = Object.keys(r).sort();
+  $('lista').innerHTML = nomes.length
+    ? nomes.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join('')
+    : '<option value="">(nenhuma receita salva)</option>';
+}
+function salvar(){
+  const s = estado();
+  const nome = (s.nome||'').trim();
+  if(!nome){ toast('Dê um nome ao bolo no topo da página antes de salvar.'); $('nome').focus(); return; }
+  const r = receitas(); r[nome] = s;
+  if(safeSet(RECIPES_KEY, r)){ atualizaLista(nome); toast('Receita "'+nome+'" salva!'); }
+  else toast('Não foi possível salvar: o navegador bloqueou o armazenamento. Use "Resumo para copiar".');
+}
+function carregar(){
+  const n = $('lista').value; const r = receitas();
+  if(n && r[n]){ aplicar(r[n]); toast('Receita "'+n+'" aberta.'); }
+  else toast('Nenhuma receita selecionada.');
+}
+function excluir(){
+  const n = $('lista').value; if(!n) return;
+  const r = receitas(); delete r[n]; safeSet(RECIPES_KEY, r); atualizaLista(); toast('Receita excluída.');
+}
+function novo(){
+  aplicar({nome:'',bolos:1,fatias:16,horas:0,valorHora:0,energia:0,perda:5,indireto:10,lucro:30,taxas:3,precoFinal:'',ing:[],pack:[]});
+  toast('Nova receita em branco.');
+}
+function textoResumo(){
+  const s = estado();
+  const L = [];
+  L.push((s.nome||'Bolo sem nome').toUpperCase());
+  L.push('Rende '+s.bolos+' bolo(s), '+s.fatias+' fatias por bolo');
+  L.push('');
+  L.push('INGREDIENTES');
+  document.querySelectorAll('.ing').forEach(r=>{
+    const n = r.querySelector('.i-nome').value || '(sem nome)';
+    L.push('- '+n+': '+r.querySelector('.i-uqtd').value+' '+r.querySelector('.i-uun').value+'  =>  '+r.querySelector('.i-custo').textContent);
+  });
+  L.push('Total de ingredientes: '+$('t-ing').textContent);
+  L.push('');
+  L.push('EMBALAGEM');
+  document.querySelectorAll('.pack').forEach(r=>{
+    L.push('- '+(r.querySelector('.p-nome').value||'(sem nome)')+': '+fmt(num(r.querySelector('.p-valor').value)));
+  });
+  L.push('Embalagem por bolo: '+$('t-pack').textContent);
+  L.push('');
+  L.push('CUSTO POR BOLO');
+  [['Ingredientes (com perdas)','d-ing'],['Mão de obra','d-mao'],['Gás e energia','d-ene'],['Embalagem','d-pack'],['Custos fixos rateados','d-ind'],['Custo total','d-custo'],['Taxas e impostos','d-taxas'],['Lucro líquido','d-lucro']]
+    .forEach(([n,id])=>L.push(n+': '+$(id).textContent));
+  L.push('');
+  L.push('PREÇO SUGERIDO: '+$('r-preco').textContent+' por bolo ('+$('r-fatia').textContent+' por fatia)');
+  return L.join('\n');
+}
+function resumo(){
+  $('resumo').value = textoResumo();
+  $('resumoBox').style.display = 'block';
+  $('resumo').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function copiar(){
+  const ta = $('resumo'); ta.focus(); ta.select();
+  let ok=false;
+  try{ ok = document.execCommand('copy'); }catch(e){}
+  if(!ok && navigator.clipboard){ navigator.clipboard.writeText(ta.value).then(()=>toast('Resumo copiado!'),()=>toast('Selecione o texto e copie manualmente.')); return; }
+  toast(ok?'Resumo copiado!':'Selecione o texto e copie manualmente.');
+}
+function imprimir(){
+  try{ window.print(); toast('Se a janela de impressão não abriu, abra esta página em tela cheia ou use "Resumo para copiar".'); }
+  catch(e){ toast('Impressão bloqueada aqui. Use "Resumo para copiar".'); }
+}
+
+// início
+$('btnAddIng').addEventListener('click',()=>{ addIng(); calc(); });
+$('btnAddPack').addEventListener('click',()=>{ addPack(); calc(); });
+$('btnSalvar').addEventListener('click',salvar);
+$('btnAbrir').addEventListener('click',carregar);
+$('btnExcluir').addEventListener('click',e=>confirmar(e.currentTarget,'Confirmar?',excluir));
+$('btnNovo').addEventListener('click',e=>confirmar(e.currentTarget,'Toque de novo para limpar',novo));
+$('btnPrint').addEventListener('click',imprimir);
+$('btnResumo').addEventListener('click',resumo);
+$('btnCopiar').addEventListener('click',copiar);
+['nome','bolos','fatias','horas','valorHora','energia','perda','indireto','lucro','taxas','precoFinal']
+  .forEach(id=>$(id).addEventListener('input',calc));
+
+const salvo = safeGet(STORE_KEY);
+if(salvo){ aplicar(salvo); }
+else {
+  // exemplo para mostrar como preencher
+  aplicar({
+    nome:'Bolo de chocolate (exemplo)', bolos:1, fatias:16, horas:2, valorHora:20, energia:5,
+    perda:5, indireto:10, lucro:30, taxas:3, precoFinal:'',
+    ing:[
+      {nome:'Farinha de trigo',pQtd:1,pUn:'kg',preco:5.5,uQtd:300,uUn:'g'},
+      {nome:'Açúcar',pQtd:1,pUn:'kg',preco:5,uQtd:250,uUn:'g'},
+      {nome:'Chocolate em pó',pQtd:200,pUn:'g',preco:9,uQtd:80,uUn:'g'},
+      {nome:'Ovos',pQtd:1,pUn:'dz',preco:14,uQtd:4,uUn:'un'},
+      {nome:'Leite',pQtd:1,pUn:'l',preco:5,uQtd:250,uUn:'ml'},
+      {nome:'Leite condensado',pQtd:395,pUn:'g',preco:7,uQtd:790,uUn:'g'}
+    ],
+    pack:[{nome:'Caixa',valor:4},{nome:'Base + fita',valor:2}]
+  });
+}
+atualizaLista();
+
+// ---- PWA: modo offline e instalação ----
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+(function(){
+  const box=$('install'), txt=$('installTxt'), btn=$('btnInstalar');
+  const jaInstalado = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let dispensado=false; try{ dispensado = localStorage.getItem('precifica-install-off')==='1'; }catch(e){}
+  if(jaInstalado || dispensado) return;
+  let evento=null;
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault(); evento=e;
+    txt.textContent='Instale o app para usar direto da tela inicial, mesmo sem internet.';
+    btn.style.display=''; box.classList.add('show');
+  });
+  btn.addEventListener('click',async()=>{
+    if(!evento) return;
+    evento.prompt(); try{ await evento.userChoice; }catch(e){}
+    evento=null; box.classList.remove('show');
+  });
+  $('btnFechaInstall').addEventListener('click',()=>{
+    box.classList.remove('show'); try{ localStorage.setItem('precifica-install-off','1'); }catch(e){}
+  });
+  window.addEventListener('appinstalled',()=>box.classList.remove('show'));
+  const ua=navigator.userAgent;
+  const ios=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(ios){
+    txt.textContent='Para instalar: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+    box.classList.add('show');
+  }
+})();
+</script>
+</body>
+</html>
